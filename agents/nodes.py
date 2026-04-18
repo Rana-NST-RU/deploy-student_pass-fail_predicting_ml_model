@@ -5,11 +5,18 @@ from agents.state import AgentState
 from tools.web_search_tool import WebSearchTool
 from tools.rag_tool import RAGTool
 
-_llm = ChatGroq(
-    model="llama-3.1-8b-instant",
-    api_key=os.getenv("GROQ_API_KEY"),
-    temperature=0.7,
-)
+_llm_instance = None
+
+
+def _get_llm() -> ChatGroq:
+    global _llm_instance
+    if _llm_instance is None:
+        _llm_instance = ChatGroq(
+            model="llama-3.1-8b-instant",
+            api_key=os.getenv("GROQ_API_KEY"),
+            temperature=0.7,
+        )
+    return _llm_instance
 
 
 class RouterNode:
@@ -20,10 +27,11 @@ class RouterNode:
             "STUDY if it's about academic performance, study plans, scores, learning gaps, or study advice. "
             "GENERAL if it's casual conversation, greetings, or unrelated to studying."
         )
-        result = _llm.invoke(
+        result = _get_llm().invoke(
             [SystemMessage(content=system), HumanMessage(content=last_msg)]
         )
-        state["is_study_query"] = "STUDY" in result.content.upper()
+        classification = result.content.strip().split()[0].upper()
+        state["is_study_query"] = classification == "STUDY"
         return state
 
 
@@ -69,7 +77,7 @@ class PlannerNode:
             "Create a concise, actionable 7-day study plan targeting these weak areas. "
             "Be specific with daily tasks. Format as Day 1 through Day 7."
         )
-        result = _llm.invoke([HumanMessage(content=prompt)])
+        result = _get_llm().invoke([HumanMessage(content=prompt)])
         state["study_plan"] = result.content
         return state
 
@@ -117,7 +125,7 @@ class ResponseGeneratorNode:
                 "Respond naturally, warmly, and helpfully."
             )
 
-        result = _llm.invoke(
+        result = _get_llm().invoke(
             [SystemMessage(content=system), HumanMessage(content=last_msg)]
         )
         state["messages"] = [AIMessage(content=result.content)]
