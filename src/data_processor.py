@@ -32,6 +32,8 @@ class DataProcessor:
             if col in df.columns:
                 Q1, Q3 = df[col].quantile(0.25), df[col].quantile(0.75)
                 IQR = Q3 - Q1
+                if IQR == 0:
+                    continue
                 df = df[(df[col] >= Q1 - 1.5 * IQR) & (df[col] <= Q3 + 1.5 * IQR)]
         print(f"After IQR outlier removal: {df.shape[0]:,} rows")
         return df

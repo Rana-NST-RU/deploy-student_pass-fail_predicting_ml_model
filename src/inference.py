@@ -22,12 +22,19 @@ class StudentPredictor:
     def _load_pretrained_model(self) -> Optional[Dict[str, Any]]:
         if not all(os.path.exists(v) for v in self.model_files.values()):
             return None
-        return {
+        bundle = {
             "model":  joblib.load(self.model_files["model"]),
             "scaler": joblib.load(self.model_files["scaler"]),
             "kmeans": joblib.load(self.model_files["kmeans"]),
             "meta":   joblib.load(self.model_files["meta"]),
         }
+        scaler = bundle["scaler"]
+        if hasattr(scaler, "n_features_in_") and scaler.n_features_in_ != len(self.feature_cols):
+            raise RuntimeError(
+                f"Loaded scaler expects {scaler.n_features_in_} features but config defines "
+                f"{len(self.feature_cols)}. Re-run train_model.py to retrain."
+            )
+        return bundle
 
     def predict_bundle(
         self, X_df: pd.DataFrame
