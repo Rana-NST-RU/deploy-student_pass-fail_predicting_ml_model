@@ -70,9 +70,9 @@ if submitted:
     st.markdown("---")
     ui.render_prediction_card(float(prob[0]), int(pred[0]), int(cluster[0]))
 
-    col1, col2 = st.columns(2)
+    result_col1, result_col2 = st.columns(2)
 
-    with col1:
+    with result_col1:
         st.subheader("📊 Score Breakdown")
         fig, ax = plt.subplots(figsize=(6, 3))
         scores = [math_score, reading_score, writing_score]
@@ -83,7 +83,7 @@ if submitted:
         st.pyplot(fig)
         plt.close()
 
-    with col2:
+    with result_col2:
         st.subheader("📋 Actionable Tips")
         recs = predictor.get_student_recommendations(pd.Series(input_data))
         for rec in recs:
