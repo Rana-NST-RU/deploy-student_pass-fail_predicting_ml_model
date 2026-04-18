@@ -9,6 +9,7 @@ class AgentState(TypedDict):
     learning_gaps: List[str]
     study_plan: Optional[str]
     retrieved_resources: List[str]
+    web_links: List[str]
     session_history: List[dict]
     current_goal: Optional[str]
     is_study_query: bool

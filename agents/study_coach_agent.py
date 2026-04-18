@@ -58,6 +58,7 @@ class StudyCoachAgent:
             learning_gaps=[],
             study_plan=None,
             retrieved_resources=[],
+            web_links=[],
             session_history=session_history,
             current_goal=None,
             is_study_query=False,

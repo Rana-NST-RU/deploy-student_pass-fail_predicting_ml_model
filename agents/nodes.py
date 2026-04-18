@@ -98,7 +98,8 @@ class ResourceRetrieverNode:
         query = f"study tips and resources for {', '.join(gaps[:2])}"
         rag_results = self.rag.retrieve(query, k=3)
         web_results = self.search.search(query, max_results=2)
-        state["retrieved_resources"] = rag_results + web_results
+        state["retrieved_resources"] = rag_results
+        state["web_links"] = web_results
         return state
 
 
@@ -111,24 +112,42 @@ class ResponseGeneratorNode:
         )
 
         if state.get("is_study_query"):
-            resources_preview = "\n".join(
-                [f"- {r[:120]}" for r in state.get("retrieved_resources", [])[:3]]
+            rag_tips = "\n".join(
+                [f"- {r}" for r in state.get("retrieved_resources", [])]
             )
+            web_links = state.get("web_links", [])
+            links_text = "\n".join([f"- {l}" for l in web_links]) if web_links else "None found"
             system = (
                 "You are a friendly, encouraging AI study coach.\n"
-                f"Student data: {state['student_data']}\n"
-                f"Learning gaps identified: {', '.join(state.get('learning_gaps', []))}\n"
-                f"Generated study plan:\n{state.get('study_plan', 'Not generated')}\n"
-                f"Relevant resources:\n{resources_preview}\n"
+                f"Student predicted outcome: {state['student_data'].get('prediction', 'Unknown')}\n"
+                f"Student profile: math={state['student_data'].get('math_score')}, "
+                f"reading={state['student_data'].get('reading_score')}, "
+                f"writing={state['student_data'].get('writing_score')}, "
+                f"attendance={state['student_data'].get('attendance_rate')}, "
+                f"study hours/day={state['student_data'].get('daily_study_hours')}, "
+                f"stress={state['student_data'].get('stress_level')}, "
+                f"sleep={state['student_data'].get('sleep_hours')}h, "
+                f"motivation={state['student_data'].get('motivation_score')}\n"
+                f"Identified weak areas: {', '.join(state.get('learning_gaps', []))}\n"
+                f"Study tips from knowledge base:\n{rag_tips}\n"
+                f"Recommended web resources (ALWAYS include these as clickable links in your response when relevant):\n{links_text}\n"
+                f"Generated 7-day study plan:\n{state.get('study_plan', 'Not generated')}\n"
                 f"Conversation so far:\n{history_text}\n\n"
-                "Respond helpfully and conversationally. Reference the student's specific data "
-                "when relevant. Keep responses concise and encouraging."
+                "Instructions: Respond helpfully and conversationally. Reference the student's specific scores "
+                "and weak areas. When you have web resources above, ALWAYS mention them with their full URLs "
+                "so the student can visit them. Be encouraging, especially for students predicted to Fail — "
+                "they need the most support and resources."
             )
         else:
             system = (
-                "You are a friendly AI study coach having a general conversation with a student.\n"
-                f"Conversation so far:\n{history_text}\n\n"
-                "Respond naturally, warmly, and helpfully."
+                "You are an AI Study Coach. You ONLY help with academic topics: study tips, "
+                "weekly study plans, subject help (math, reading, writing), motivation, attendance, "
+                "stress management, and academic performance improvement.\n"
+                "If the student asks about ANYTHING unrelated to studying or academics, politely "
+                "decline and redirect them. Say something like: 'I'm your Study Coach, so I can "
+                "only help with study tips, weekly plans, subject help, or motivation. What would "
+                "you like to improve today?'\n"
+                f"Conversation so far:\n{history_text}"
             )
 
         try:

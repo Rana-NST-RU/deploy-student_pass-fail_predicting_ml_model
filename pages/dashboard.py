@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 from src.inference import StudentPredictor
 from src.ui_components import UIBuilder
 
@@ -15,35 +14,56 @@ ui = UIBuilder()
 ui.load_css()
 
 if not predictor.is_ready():
-    st.error("⚠️ Models not found. Run `python train_model.py` first.")
+    st.error("Models not found. Run `python train_model.py` first.")
     st.stop()
 
-st.title("🎓 Student Performance Predictor")
-st.markdown("Enter your academic details below to get a Pass/Fail prediction.")
+ui.render_hero_banner(
+    "🎓 Student Performance Predictor",
+    "Enter your academic details below and get an instant AI-powered Pass / Fail prediction."
+)
 
 with st.form("student_form"):
-    col1, col2, col3 = st.columns(3)
+    # ── Academic Scores ──
+    ui.render_section_label("📊 Academic Scores")
+    sc1, sc2, sc3 = st.columns(3)
+    with sc1:
+        math_score = st.slider("📐 Math Score", 0, 100, 65)
+    with sc2:
+        reading_score = st.slider("📖 Reading Score", 0, 100, 65)
+    with sc3:
+        writing_score = st.slider("✍️ Writing Score", 0, 100, 65)
 
-    with col1:
-        parental_education = st.slider("Parental Education Level", 1, 7, 3,
-            help="1=No formal education, 7=Postgraduate")
-        daily_study = st.slider("Daily Study Hours", 0.0, 12.0, 3.0, step=0.5)
-        attendance = st.slider("Attendance Rate", 0.0, 1.0, 0.85, step=0.01,
-            help="0.0 = 0%, 1.0 = 100%")
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    with col2:
-        sleep_hours = st.slider("Sleep Hours per Night", 3.0, 12.0, 7.0, step=0.5)
-        stress_level = st.slider("Stress Level", 1, 10, 5,
-            help="1 = very low stress, 10 = extremely high stress")
-        motivation = st.slider("Motivation Score", 0, 100, 60)
+    # ── Study Habits ──
+    ui.render_section_label("📚 Study Habits")
+    sh1, sh2, sh3 = st.columns(3)
+    with sh1:
+        daily_study = st.slider("⏱️ Daily Study Hours", 0.0, 12.0, 3.0, step=0.5)
+    with sh2:
+        attendance = st.slider("🏫 Attendance Rate", 0.0, 1.0, 0.85, step=0.01,
+            help="0.0 = 0%,  1.0 = 100%")
+    with sh3:
+        parental_education = st.slider("👨‍👩‍🎓 Parental Education Level", 1, 7, 3,
+            help="1 = No formal education  →  7 = Postgraduate")
 
-    with col3:
-        math_score = st.slider("Math Score", 0, 100, 65)
-        reading_score = st.slider("Reading Score", 0, 100, 65)
-        writing_score = st.slider("Writing Score", 0, 100, 65)
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+    # ── Wellbeing ──
+    ui.render_section_label("🧘 Wellbeing")
+    wb1, wb2, wb3 = st.columns(3)
+    with wb1:
+        sleep_hours = st.slider("😴 Sleep Hours / Night", 3.0, 12.0, 7.0, step=0.5)
+    with wb2:
+        stress_level = st.slider("😰 Stress Level", 1, 10, 5,
+            help="1 = very low  →  10 = extremely high")
+    with wb3:
+        motivation = st.slider("🔥 Motivation Score", 0, 100, 60)
+
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
     submitted = st.form_submit_button("🔍 Predict My Outcome", type="primary")
 
+# ── Results ──
 if submitted:
     input_data = {
         "parental_education_level": parental_education,
@@ -66,30 +86,62 @@ if submitted:
         "cluster": int(cluster[0]),
     }
     st.session_state.prediction_done = True
+    st.session_state.chat_history = []
+    st.session_state.session_history = []
+    st.session_state.show_chat_button = True
 
     st.markdown("---")
+
+    # Prediction card (full width)
     ui.render_prediction_card(float(prob[0]), int(pred[0]), int(cluster[0]))
 
-    result_col1, result_col2 = st.columns(2)
+    # Score breakdown + tips side by side
+    left, right = st.columns([1, 1], gap="large")
 
-    with result_col1:
-        st.subheader("📊 Score Breakdown")
-        fig, ax = plt.subplots(figsize=(6, 3))
-        scores = [math_score, reading_score, writing_score]
-        labels = ["Math", "Reading", "Writing"]
-        colors = ["#6366f1" if s >= 50 else "#ef4444" for s in scores]
-        ui.mpl_bar(ax, labels, scores, "Subject Scores", colors)
-        ax.axhline(50, color="gray", linestyle="--", alpha=0.5, linewidth=1)
-        st.pyplot(fig)
-        plt.close()
+    with left:
+        ui.render_section_label("📊 Score Breakdown")
+        ui.render_score_bars(math_score, reading_score, writing_score)
 
-    with result_col2:
-        st.subheader("📋 Actionable Tips")
+        # Mini stat chips
+        attendance_pct = f"{attendance*100:.0f}%"
+        st.markdown(f"""
+        <div style="margin-top:18px;">
+            <div class="section-label" style="margin-bottom:10px;">📋 Other Metrics</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div class="stat-chip">
+                    <span class="sc-icon">⏱️</span>
+                    <div><div class="sc-val">{daily_study}h</div><div class="sc-lbl">Daily Study</div></div>
+                </div>
+                <div class="stat-chip">
+                    <span class="sc-icon">🏫</span>
+                    <div><div class="sc-val">{attendance_pct}</div><div class="sc-lbl">Attendance</div></div>
+                </div>
+                <div class="stat-chip">
+                    <span class="sc-icon">😴</span>
+                    <div><div class="sc-val">{sleep_hours}h</div><div class="sc-lbl">Sleep / Night</div></div>
+                </div>
+                <div class="stat-chip">
+                    <span class="sc-icon">🔥</span>
+                    <div><div class="sc-val">{motivation}</div><div class="sc-lbl">Motivation</div></div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right:
+        ui.render_section_label("💡 Actionable Tips")
         recs = predictor.get_student_recommendations(pd.Series(input_data))
-        for rec in recs:
-            st.markdown(f"- {rec}")
+        ui.render_tips(recs)
 
-    st.markdown("---")
-    st.markdown("### Ready to improve? Chat with your AI Study Coach below 👇")
-    if st.button("💬 Open Study Coach Chat", type="primary"):
-        st.switch_page("pages/chat_interface.py")
+# ── CTA ──
+if st.session_state.get("show_chat_button"):
+    st.markdown("""
+    <div class="cta-box">
+        <div class="cta-title">🤖 Ready to level up?</div>
+        <div class="cta-sub">Chat with your AI Study Coach for a personalised 7-day plan and live resources.</div>
+    </div>
+    """, unsafe_allow_html=True)
+    col_btn = st.columns([1, 2, 1])[1]
+    with col_btn:
+        if st.button("💬 Open Study Coach Chat", type="primary", use_container_width=True):
+            st.switch_page("pages/chat_interface.py")
