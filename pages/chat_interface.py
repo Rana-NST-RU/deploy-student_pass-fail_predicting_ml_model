@@ -1,7 +1,4 @@
 import streamlit as st
-from dotenv import load_dotenv
-load_dotenv()
-
 from agents.study_coach_agent import StudyCoachAgent
 from src.ui_components import UIBuilder
 

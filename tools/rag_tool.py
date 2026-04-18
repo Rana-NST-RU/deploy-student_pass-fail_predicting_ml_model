@@ -46,7 +46,12 @@ class RAGTool:
         self._seed_if_empty()
 
     def _seed_if_empty(self):
-        if self.vectorstore._collection.count() == 0:
+        try:
+            existing = self.vectorstore.get()
+            already_seeded = len(existing["ids"]) > 0
+        except Exception:
+            already_seeded = False
+        if not already_seeded:
             docs = [Document(page_content=tip) for tip in STUDY_TIPS]
             self.vectorstore.add_documents(docs)
             print(f"RAG: seeded {len(docs)} study tip documents.")

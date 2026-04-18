@@ -44,7 +44,11 @@ class StudentPredictor:
         Xc = X_df[self.feature_cols].copy()
         for col in self.feature_cols:
             Xc[col] = pd.to_numeric(Xc[col], errors="coerce").fillna(0.0)
-        X_s = self.bundle["scaler"].transform(Xc)
+        scaler = self.bundle["scaler"]
+        if hasattr(scaler, "data_min_") and hasattr(scaler, "data_max_"):
+            for i, col in enumerate(self.feature_cols):
+                Xc[col] = Xc[col].clip(scaler.data_min_[i], scaler.data_max_[i])
+        X_s = scaler.transform(Xc)
         probas = self.bundle["model"].predict_proba(X_s)[:, 1]
         preds = (probas >= 0.5).astype(int)
         clusters = self.bundle["kmeans"].predict(X_s)

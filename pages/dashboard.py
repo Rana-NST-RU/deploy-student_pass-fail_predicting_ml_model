@@ -25,8 +25,8 @@ with st.form("student_form"):
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        parental_education = st.slider("Parental Education Level", 1, 6, 3,
-            help="1=No formal education, 6=Postgraduate")
+        parental_education = st.slider("Parental Education Level", 1, 7, 3,
+            help="1=No formal education, 7=Postgraduate")
         daily_study = st.slider("Daily Study Hours", 0.0, 12.0, 3.0, step=0.5)
         attendance = st.slider("Attendance Rate", 0.0, 1.0, 0.85, step=0.01,
             help="0.0 = 0%, 1.0 = 100%")

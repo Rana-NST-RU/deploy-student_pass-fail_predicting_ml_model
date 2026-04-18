@@ -27,11 +27,14 @@ class RouterNode:
             "STUDY if it's about academic performance, study plans, scores, learning gaps, or study advice. "
             "GENERAL if it's casual conversation, greetings, or unrelated to studying."
         )
-        result = _get_llm().invoke(
-            [SystemMessage(content=system), HumanMessage(content=last_msg)]
-        )
-        classification = result.content.strip().split()[0].upper()
-        state["is_study_query"] = classification == "STUDY"
+        try:
+            result = _get_llm().invoke(
+                [SystemMessage(content=system), HumanMessage(content=last_msg)]
+            )
+            classification = result.content.strip().split()[0].upper()
+            state["is_study_query"] = classification == "STUDY"
+        except Exception:
+            state["is_study_query"] = True
         return state
 
 
@@ -77,8 +80,11 @@ class PlannerNode:
             "Create a concise, actionable 7-day study plan targeting these weak areas. "
             "Be specific with daily tasks. Format as Day 1 through Day 7."
         )
-        result = _get_llm().invoke([HumanMessage(content=prompt)])
-        state["study_plan"] = result.content
+        try:
+            result = _get_llm().invoke([HumanMessage(content=prompt)])
+            state["study_plan"] = result.content
+        except Exception:
+            state["study_plan"] = "Study plan generation failed. Please check your connection and try again."
         return state
 
 
@@ -125,10 +131,13 @@ class ResponseGeneratorNode:
                 "Respond naturally, warmly, and helpfully."
             )
 
-        result = _get_llm().invoke(
-            [SystemMessage(content=system), HumanMessage(content=last_msg)]
-        )
-        state["messages"] = [AIMessage(content=result.content)]
+        try:
+            result = _get_llm().invoke(
+                [SystemMessage(content=system), HumanMessage(content=last_msg)]
+            )
+            state["messages"] = [AIMessage(content=result.content)]
+        except Exception:
+            state["messages"] = [AIMessage(content="Sorry, I'm having trouble connecting to the AI service. Please try again in a moment.")]
         return state
 
 
