@@ -3,6 +3,9 @@ from typing import List
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
+from src.config import BASE_DIR
+
+_DEFAULT_PERSIST_DIR = str(BASE_DIR / "chroma_db")
 
 STUDY_TIPS = [
     "For improving math scores: practice daily with problem sets, focus on weak areas first, use spaced repetition for formulas.",
@@ -34,7 +37,7 @@ STUDY_TIPS = [
 
 
 class RAGTool:
-    def __init__(self, persist_dir: str = "./chroma_db"):
+    def __init__(self, persist_dir: str = _DEFAULT_PERSIST_DIR):
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )

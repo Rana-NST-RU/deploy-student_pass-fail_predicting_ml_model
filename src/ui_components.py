@@ -1,13 +1,10 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-import pandas as pd
 from typing import List, Optional, Any
 
 
 class UIBuilder:
     def __init__(self) -> None:
         self.palette = ["#6366f1", "#a78bfa", "#10b981", "#f59e0b", "#ef4444", "#06b6d4"]
-        plt.style.use("dark_background")
 
     def load_css(self) -> None:
         st.markdown("""
@@ -349,47 +346,3 @@ class UIBuilder:
 
     def render_metric_card(self, value: Any, label: str) -> str:
         return f"""<div class="metric-card"><div class="val">{value}</div><div class="lbl">{label}</div></div>"""
-
-    def mpl_hist(self, ax, data, title, xlabel, color="#6366f1"):
-        ax.hist(data.dropna(), bins=25, color=color, alpha=0.85, edgecolor="none", rwidth=0.9)
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=6)
-        ax.set_xlabel(xlabel, fontsize=8, alpha=0.7)
-        ax.set_ylabel("Count", fontsize=8, alpha=0.7)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-    def mpl_bar(self, ax, labels, values, title, colors=None):
-        cols = colors or self.palette[:len(labels)]
-        bars = ax.bar(labels, values, color=cols, alpha=0.9, edgecolor="none", width=0.55)
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=6)
-        for bar, val in zip(bars, values):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5,
-                    f"{int(val):,}", ha="center", va="bottom", fontsize=9, fontweight="bold")
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-
-    def mpl_pie(self, ax, labels, values, title, colors=None):
-        cols = colors or self.palette[:len(labels)]
-        _, _, autotexts = ax.pie(
-            values, labels=labels, autopct="%1.1f%%", startangle=90,
-            colors=cols, pctdistance=0.82,
-            wedgeprops={"linewidth": 2, "edgecolor": "#1a1a2e"},
-            textprops={"fontsize": 10}
-        )
-        for at in autotexts:
-            at.set_fontweight("bold")
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=6)
-
-    def mpl_box(self, ax, df, col, title):
-        groups, labels = [], []
-        for c in sorted(df["cluster"].unique()):
-            groups.append(pd.to_numeric(df[df["cluster"] == c][col], errors="coerce").dropna().values)
-            labels.append(f"C{c}")
-        bp = ax.boxplot(groups, labels=labels, patch_artist=True,
-                        medianprops={"color": "white", "linewidth": 2})
-        for patch, color in zip(bp["boxes"], self.palette):
-            patch.set_facecolor(color)
-            patch.set_alpha(0.8)
-        ax.set_title(title, fontsize=11, fontweight="bold", pad=6)
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)

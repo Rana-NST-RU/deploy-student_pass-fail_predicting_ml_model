@@ -87,7 +87,8 @@ if submitted:
     }
     st.session_state.prediction_done = True
     st.session_state.chat_history = []
-    st.session_state.session_history = []
+    # Reset SessionMemory so a new prediction starts a fresh coaching session
+    st.session_state.pop("session_memory", None)
     st.session_state.show_chat_button = True
 
     st.markdown("---")
