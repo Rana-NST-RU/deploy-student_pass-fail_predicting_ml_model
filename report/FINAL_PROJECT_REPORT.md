@@ -1,20 +1,20 @@
-# Automated Student Pass/Fail Prediction System
+# Student Pass/Fail Predictor with AI Study Coach
 
-### A Machine Learning Approach to Behavioral Analytics and Academic Intervention
+### A Machine Learning + Generative AI Approach to Personalised Academic Intervention
 
 **Team Members:**
 
 * **Divyanshu Raj** – Data Engineering & Preprocessing Lead
-* **Yash Agarwal** – ML Modeling & Algorithm Tuning Lead
+* **Yash Agarwal** – ML Modelling & Algorithm Tuning Lead
 * **Abhijeet Kumar** – Application Development & Deployment Lead
-* **Ranajeet Roy** – Clustering Architecture & Documentation Lead
+* **Ranajeet Roy** – AI Agent Architecture & Documentation Lead
 
 **Project Details:**
 
-* **Course:** Intro to GenAI Capstone Project (Milestone 1)
+* **Course:** Intro to GenAI Capstone Project
 * **Batch:** 2024
-* **Date:** March 2026
-* **GitHub Repository:** https://github.com/divyanshu-114/student_pass-fail_predicting_ml_model
+* **Date:** April 2026
+* **GitHub Repository:** https://github.com/Rana-NST-RU/deploy-student_pass-fail_predicting_ml_model
 * **Hosted Application:** https://student-pass-fail-predicting-ml-model.streamlit.app/
 
 ---
@@ -23,35 +23,24 @@
 
 ### Context and Background
 
-In academic environments, student performance evaluation is traditionally reactive — educators only become aware of a student's academic risk after grades have already declined. By the time lagging indicators like exam scores become visible, the critical window for early intervention has often passed. Large institutions today collect extensive behavioral data (attendance, study habits, class participation) that goes largely under-utilized.
+In academic environments, student performance evaluation is traditionally reactive — educators only become aware of a student's academic risk after grades have already declined. By the time lagging indicators like exam scores become visible, the critical window for early intervention has often passed.
+
+This project goes a step further than a standard prediction system: it not only predicts whether a student will pass or fail, but also provides each student with a **personalised AI-powered coaching session** that diagnoses their weak areas, generates a targeted 7-day study plan, and retrieves live resources — all in a conversational interface.
 
 ### The Core Challenge
 
-This project addresses the challenge of predicting student pass/fail outcomes **using only behavioral signals**, without relying on direct academic outputs like test scores or existing grades. This approach is intentional: it enables educators to identify at-risk students *before* formal assessment, making intervention proactive rather than reactive.
+Two challenges are addressed simultaneously:
 
-Additionally, predicting academic failure (a minority class) is inherently difficult due to **class imbalance** — most students historically pass, causing naive models to simply always predict "Pass."
-
-### Condition for Pass/Fail
-
-The system defines a student as **passing** only when all three behavioral thresholds are simultaneously met:
-
-| Behavioral Feature        | Passing Threshold |
-| :------------------------ | :---------------- |
-| Weekly Self-Study Hours   | ≥ 10 hours/week  |
-| Attendance Percentage     | ≥ 75%            |
-| Class Participation Score | ≥ 5 / 10         |
-
-Any student failing to meet even one of these criteria is classified as **at risk of failing**, mirroring the conditions displayed on the live dashboard.
+1. **Prediction:** Accurately predict student pass/fail outcomes from 9 behavioral and academic features, handling class imbalance and selecting the best model objectively.
+2. **Intervention:** Translate a raw prediction into actionable, personalised guidance through a conversational AI agent — making the system useful to students, not just to administrators.
 
 ### Solution Overview
 
-We engineered a machine learning pipeline that:
+The system is a two-page Streamlit application:
 
-1. Cleans and balances the dataset using IQR outlier removal and SMOTE oversampling
-2. Trains an **XGBoost Classifier** for binary pass/fail prediction
-3. Trains a supplementary **XGBoost Classifier** for grade-letter prediction (A–E)
-4. Applies **K-Means Clustering** to segment students into 3 behavioral cohorts
-5. Deploys the entire framework through a real-time **Streamlit** web dashboard
+**Page 1 — Dashboard:** The student enters 9 metrics via sliders and receives an instant Pass/Fail prediction with probability, a behavioural cluster assignment, score breakdown, and personalised tips.
+
+**Page 2 — AI Study Coach:** The student chats with a LangGraph-powered AI agent that diagnoses their weak areas, generates a 7-day study plan via Groq LLM, retrieves study tips from a ChromaDB knowledge base, and fetches live web resources via Tavily search.
 
 ---
 
@@ -59,88 +48,90 @@ We engineered a machine learning pipeline that:
 
 ### Source Data
 
-The dataset `student_performance.csv` contains **1,000,000 synthetic student records**, constructed to simulate large-scale institutional behavioral data across a diverse student population.
+The dataset `data/student_data.csv` contains approximately **1,000,000 synthetic student records** simulating large-scale institutional data across a diverse student population.
 
-### Dataset Structure
+### Dataset Features (9 Input Features + 1 Target)
 
-| Column                      | Type    | Description                                     |
-| :-------------------------- | :------ | :---------------------------------------------- |
-| `student_id`              | Integer | Unique identifier per student (1 to 1,000,000)  |
-| `weekly_self_study_hours` | Float   | Hours spent studying independently per week     |
-| `attendance_percentage`   | Float   | Percentage of classes attended                  |
-| `class_participation`     | Float   | Participation score (0–10 scale)               |
-| `total_score`             | Float   | Overall academic score (excluded from features) |
-| `grade`                   | String  | Letter grade: A, B, C, D, F                     |
+| Feature | Type | Description |
+| :---------------------------- | :------ | :----------------------------------------------- |
+| `parental_education_level` | Integer | 1 (no formal education) → 7 (postgraduate) |
+| `daily_study_hours` | Float | Hours studied independently per day (0–12) |
+| `attendance_rate` | Float | Proportion of classes attended (0.0–1.0) |
+| `sleep_hours` | Float | Hours of sleep per night (3–12) |
+| `stress_level` | Integer | Self-reported stress level (1 = very low, 10 = very high) |
+| `motivation_score` | Integer | Motivation score (0–100) |
+| `math_score` | Integer | Math subject score (0–100) |
+| `reading_score` | Integer | Reading subject score (0–100) |
+| `writing_score` | Integer | Writing subject score (0–100) |
+| `pass_fail` | String | Target label — `"Pass"` or `"Fail"` |
+
+> **Note on the synthetic dataset:** The `pass_fail` label in this dataset is deterministically derived from the average of `math_score`, `reading_score`, and `writing_score`. This causes the trained classifier to learn a perfect rule and achieve 1.00 on all evaluation metrics. This is expected behaviour for this synthetic dataset; real-world labels, collected independently of features, would produce lower and more informative metrics.
 
 ### Feature Engineering Decisions
 
-To **prevent data leakage**, the columns `total_score` and `grade` were deliberately excluded from the feature matrix. These are outcome variables that a model cannot access at prediction time in a real early-warning scenario. The three behavioral columns form the complete feature set.
-
-### Statistical Summary (Raw Dataset)
-
-| Feature                     | Mean  | Std Dev | Min | 25%  | 50%  | 75%   | Max   |
-| :-------------------------- | :---- | :------ | :-- | :--- | :--- | :---- | :---- |
-| `weekly_self_study_hours` | ~17.0 | ~6.5    | 0.0 | ~12  | ~17  | ~22   | ~40   |
-| `attendance_percentage`   | ~80.0 | ~12.0   | 0.0 | ~72  | ~82  | ~91   | 100.0 |
-| `class_participation`     | ~5.0  | ~2.9    | 0.0 | ~2.5 | ~5.0 | ~7.5  | 10.0  |
-| `total_score`             | 84.28 | 15.43   | 9.4 | 73.9 | 87.5 | 100.0 | 100.0 |
-
-### Grade Distribution (Raw)
-
-| Grade | Count   | %     |
-| :---- | :------ | :---- |
-| A     | 548,644 | 54.9% |
-| B     | 258,174 | 25.8% |
-| C     | 141,980 | 14.2% |
-| D     | 44,998  | 4.5%  |
-| F     | 6,204   | 0.6%  |
-
-No null values were found in any column.
+All 9 features are used directly as model inputs after cleaning and scaling. No engineered features are added. `pass_fail` is the only target — there is no separate grade prediction model in this version.
 
 ---
 
-## 3. EDA Process
+## 3. EDA & Preprocessing
 
-### 3.1 Outlier Detection and Removal
+### 3.1 Null Value Handling
 
-During Exploratory Data Analysis, all three behavioral features were found to contain outliers — extreme values likely caused by data entry errors or measurement anomalies (e.g., 0% attendance, 40+ study hours per week).
+For each of the 9 feature columns, missing values are filled with the **column median** — chosen over mean for robustness against skewed distributions:
 
-**Method Applied: Interquartile Range (IQR) Filtering**
+```python
+df[col].fillna(df[col].median())
+```
 
-For each numerical column, data points outside the following bounds were removed:
+After this step, 0 null values remain in any feature column.
+
+### 3.2 Outlier Removal (IQR Method)
+
+Applied to each feature column independently:
 
 ```
 Lower Bound = Q1 − 1.5 × IQR
 Upper Bound = Q3 + 1.5 × IQR
 ```
 
-**Impact:**
+Rows outside these bounds are dropped. Columns with IQR = 0 (no variation) are skipped. This step removes approximately 1–2% of records.
 
-| Stage                 | Row Count |
-| :-------------------- | :-------- |
-| Raw dataset           | 1,000,000 |
-| After outlier removal | ~986,175  |
-| Removed (noise)       | ~13,825   |
+### 3.3 Target Encoding
 
-Roughly **1.4% of records** were cleaned as statistical noise, ensuring model training was not corrupted by extreme edge cases.
+```python
+df["result"] = 1 if pass_fail == "Pass" else 0
+```
 
-### 3.2 Class Imbalance Analysis
+Class distribution is printed at this stage to confirm approximate balance between Pass and Fail classes.
 
-After applying the behavioral pass/fail threshold conditions, the label distribution across the cleaned dataset was:
+### 3.4 Percentile Clipping + MinMaxScaling
 
-| Class | Count   | %     |
-| :---- | :------ | :---- |
-| Pass  | 448,136 | 45.4% |
-| Fail  | 538,039 | 54.6% |
+Before scaling, each feature is clipped to its 1st–99th percentile range to suppress remaining extreme values. MinMaxScaler is then applied:
 
-The distribution is nearly balanced (~45/55 split), which is largely because the multi-condition threshold (all three must be met simultaneously) is sufficiently strict. SMOTE was applied as an additional safeguard during model training to enhance minority class representation in the training split.
+```
+X_scaled = (X − X_min) / (X_max − X_min)   →   all values in [0.0, 1.0]
+```
 
-### 3.3 Key EDA Insights
+The fitted scaler is saved as `models/scaler.pkl` for use at inference time.
 
-1. **Attendance is the strongest single predictor** — students with attendance below 75% almost universally fail regardless of other factors.
-2. **Study hours show diminishing returns** — very high study hours (>30/week) without corresponding attendance improvement don't reliably increase pass rates.
-3. **Class participation has a synergistic effect** — its contribution is amplified when combined with good attendance (non-linear interaction).
-4. **Grade A students dominate the dataset** (~55%), creating the misleading impression that the "always predict Pass" strategy works — this is precisely what SMOTE is designed to counter.
+### 3.5 Train/Test Split
+
+```python
+train_test_split(X_scaled, y, test_size=0.2, random_state=42, stratify=y)
+```
+
+- **Training set:** 80% (stratified — same Pass/Fail ratio)
+- **Test set:** 20% (held out permanently, never seen during training or SMOTE)
+
+### 3.6 SMOTE Oversampling
+
+**Synthetic Minority Over-sampling Technique** is applied exclusively to the training split:
+
+```python
+SMOTE(random_state=42).fit_resample(X_train, y_train)
+```
+
+Synthetic minority-class samples are generated by interpolating between real minority neighbours. This balances the training distribution without corrupting the test set's real-world proportions.
 
 ---
 
@@ -148,70 +139,88 @@ The distribution is nearly balanced (~45/55 split), which is largely because the
 
 ### 4.1 Technical Stack
 
-| Category          | Libraries/Tools                                        |
-| :---------------- | :----------------------------------------------------- |
-| Data Processing   | `pandas`, `numpy`                                  |
-| Preprocessing     | `scikit-learn` (MinMaxScaler, train_test_split)      |
-| Class Balancing   | `imbalanced-learn` (SMOTE)                           |
-| ML Algorithms     | `scikit-learn` (KMeans), `xgboost` (XGBClassifier) |
-| Label Encoding    | `scikit-learn` (LabelEncoder)                        |
-| Model Persistence | `joblib`                                             |
-| Deployment & UI   | `streamlit`                                          |
+| Category | Libraries / Tools |
+| :------------------- | :------------------------------------------------------- |
+| Data Processing | `pandas`, `numpy` |
+| Preprocessing | `scikit-learn` (MinMaxScaler, train_test_split) |
+| Class Balancing | `imbalanced-learn` (SMOTE) |
+| ML — Classification | `scikit-learn` (LogisticRegression, GridSearchCV), `xgboost` (XGBClassifier) |
+| ML — Clustering | `scikit-learn` (KMeans) |
+| Model Persistence | `joblib` |
+| Streamlit UI | `streamlit` |
+| Agent Orchestration | `langgraph` (StateGraph) |
+| LLM | `langchain-groq` → Groq API (`llama-3.1-8b-instant`) |
+| RAG Vector Store | `langchain-chroma` → ChromaDB |
+| Embeddings | `langchain-huggingface` → `sentence-transformers/all-MiniLM-L6-v2` |
+| Web Search | `tavily-python` (TavilyClient) |
 
-### 4.2 System Architecture Pipeline
+### 4.2 Model Selection via GridSearchCV
 
-```mermaid
-graph TD
-    A[Raw CSV Data - 1M records] --> B[Null Value Imputation - median fill]
-    B --> C[IQR Outlier Removal]
-    C --> D[Behavioral Pass/Fail Labeling]
-    D --> E[MinMaxScaler - normalize 0 to 1]
-    E --> F[Train/Test Split - 80/20 stratified]
-    F --> G[SMOTE Oversampling on Train Set]
-    G --> H[XGBoost - Pass/Fail Classifier]
-    G --> I[XGBoost - Grade Predictor A to E]
-    E --> J[KMeans - k=3 Behavioral Clustering]
-    H --> K[pass_model.pkl]
-    I --> L[grade_model.pkl]
-    J --> M[kmeans.pkl]
-    E --> N[scaler.pkl]
-    K & L & M & N --> O[Streamlit Dashboard - Real-time Inference]
+Two candidate classifiers are trained and compared using **3-fold Stratified K-Fold cross-validation**, scored by weighted F1:
+
+| Model | Hyperparameters Searched |
+| :---------------------- | :------------------------------------------------------- |
+| Logistic Regression | `C ∈ {0.1, 1.0, 10.0}` |
+| XGBoost Classifier | `n_estimators ∈ {50, 100}`, `max_depth ∈ {3, 6}`, `learning_rate ∈ {0.05, 0.1}` |
+
+The model with the highest **weighted F1** on the held-out test set is selected as `model.pkl`. This objective selection process ensures the best-performing model is used regardless of algorithm family.
+
+### 4.3 K-Means Behavioral Clustering
+
+A `KMeans(n_clusters=3, random_state=42)` model is fitted on the scaled training data. It segments students into 3 performance clusters:
+
+- **Cluster 0:** High Achievers
+- **Cluster 1:** Average Performers
+- **Cluster 2:** Struggling / At-Risk Students
+
+The cluster assignment is shown on the dashboard and passed to the AI Study Coach to contextualise advice.
+
+### 4.4 Artifact Serialisation
+
+All trained objects are saved to `models/` using `joblib`:
+
+| File | Purpose |
+| :------------------------ | :-------------------------------------- |
+| `model.pkl` | Best trained classifier (LR or XGBoost) |
+| `scaler.pkl` | Fitted MinMaxScaler |
+| `kmeans.pkl` | Fitted KMeans (3 clusters) |
+| `meta.pkl` | Best model name + accuracy/precision/recall/F1 |
+| `feature_names.pkl` | Ordered feature name array |
+| `input_feature_cols.pkl` | Feature column list |
+
+### 4.5 LangGraph AI Study Coach
+
+The AI Study Coach is implemented as a **LangGraph `StateGraph`** with 6 nodes wired in sequence:
+
+```
+RouterNode → (STUDY) → DiagnosisNode → PlannerNode → ResourceRetrieverNode → ResponseGeneratorNode → MemoryNode → END
+           → (GENERAL) ────────────────────────────────────────────────────→ ResponseGeneratorNode → MemoryNode → END
 ```
 
-### 4.3 Data Transformation Phase
+| Node | Responsibility |
+| :------------------------ | :----------------------------------------------------------------------- |
+| `RouterNode` | Groq LLM classifies the query as STUDY or GENERAL |
+| `DiagnosisNode` | Rule-based thresholds on 8 student metrics → `learning_gaps` list |
+| `PlannerNode` | Groq LLM generates a personalised 7-day study plan |
+| `ResourceRetrieverNode` | ChromaDB RAG (k=3 tips) + Tavily live web search (k=2 links) |
+| `ResponseGeneratorNode` | Assembles final reply with all context; politely declines off-topic queries |
+| `MemoryNode` | Appends the current turn to `session_history` |
 
-**MinMaxScaler** was applied to normalize all three behavioral features to the `[0, 1]` range:
+**AgentState** (LangGraph TypedDict) carries all shared data across nodes:
 
+```python
+class AgentState(TypedDict):
+    messages: Annotated[List[BaseMessage], operator.add]
+    student_data: dict
+    learning_gaps: List[str]
+    study_plan: Optional[str]
+    retrieved_resources: List[str]
+    web_links: List[str]
+    session_history: List[dict]
+    is_study_query: bool
 ```
-X_scaled = (X - X_min) / (X_max - X_min)
-```
 
-This ensures that `attendance_percentage` (range 0–100) does not numerically dominate `class_participation` (range 0–10) during tree-splitting in the XGBoost model.
-
-### 4.4 Classification Strategy
-
-**Pass/Fail Model:**
-
-* **Algorithm:** `XGBClassifier(random_state=42)`
-* **Training data:** SMOTE-balanced training split (80% of cleaned data)
-* **Target:** Binary label based on all three behavioral thresholds
-* **Inference:** Probability (`predict_proba`) with 0.5 decision threshold
-
-**Grade Prediction Model:**
-
-* **Algorithm:** `XGBClassifier(random_state=42)`
-* **Training data:** Full scaled dataset
-* **Target:** Label-encoded grade (A=0, B=1, C=2, D=3, F=4)
-
-**Behavioral Clustering:**
-
-* **Algorithm:** `KMeans(n_clusters=3, random_state=42)`
-* **Purpose:** Unsupervised segmentation into 3 behavioral tiers (e.g., high-engagement, moderate, disengaged)
-* **No labels used** — purely behavioral grouping
-
-### 4.5 Label Encoding for Grades
-
-A `LabelEncoder` was fitted on grade values (A–F) and saved as `grade_encoder.pkl`. This allows the application to decode numeric predictions back to human-readable letter grades at inference time.
+**Session persistence** is handled by `SessionMemory` (stored in `st.session_state`), which acts as the backing store for conversation history. It is reset automatically when a new prediction is made.
 
 ---
 
@@ -219,115 +228,95 @@ A `LabelEncoder` was fitted on grade values (A–F) and saved as `grade_encoder.
 
 ### 5.1 Performance Metrics
 
-Models were evaluated on an **isolated 20% held-out test set** with stratified sampling to preserve class proportions.
+Models are evaluated on the isolated 20% held-out test set with stratified class proportions.
 
-| Metric              | Value |
-| :------------------ | :---- |
-| **Accuracy**  | 1.00  |
-| **Precision** | 1.00  |
+| Metric | Score |
+| :------------ | :---- |
+| **Accuracy** | 1.00 |
+| **Precision** | 1.00 |
+| **Recall** | 1.00 |
+| **F1 Score** | 1.00 |
 
-> The high accuracy reflects the deterministic nature of the pass/fail labels — since the labels are defined as exact threshold conditions on the same features the model trains on, XGBoost can learn the decision boundaries perfectly. This is by design: the goal is a system where the model's prediction precisely mirrors the threshold logic displayed to users on the dashboard.
+As noted in Section 2, these perfect scores are expected given the synthetic, deterministic nature of the pass/fail labels. On a noisy real-world dataset, all metrics would be meaningfully lower.
 
-### 5.2 Why F1-Score / Recall Matter Here
+### 5.2 Preprocessing Results Summary
 
-In a real academic context, the cost of a **False Negative** (predicting "Pass" for a student who should fail) is much higher than a **False Positive**. SMOTE ensures the model does not simply predict the majority class. The balanced class distribution (45%/55%) after labeling further supports this.
-
-### 5.3 Data Preprocessing Results
-
-| Step                       | Result                                   |
-| :------------------------- | :--------------------------------------- |
-| Null value imputation      | 0 nulls remaining after median fill      |
-| IQR outlier removal        | ~13,825 rows removed (1.4% of dataset)   |
-| SMOTE applied to train set | Both classes equalized in training split |
-| Scaler fitted              | MinMaxScaler on 3 behavioral features    |
+| Step | Result |
+| :------------------------ | :----------------------------------------------- |
+| Null value imputation | 0 nulls remaining after median fill |
+| IQR outlier removal | ~1–2% of rows removed |
+| SMOTE on training split | Fail class up-sampled to match Pass count |
+| MinMaxScaler | All 9 features normalised to [0.0, 1.0] |
+| Model selection | Best of LR vs XGBoost by weighted F1 on test set |
 
 ---
 
-## 6. Optimization
+## 6. Optimisation
 
-### 6.1 Preventing Data Leakage
+### 6.1 Objective Model Selection
 
-The most critical optimization was the **strict exclusion** of `total_score` and `grade` from the feature matrix. These are direct academic outcomes; including them would let the model "see the future," rendering it useless for real early-warning scenarios.
+Rather than committing to a single algorithm, **GridSearchCV** is used to tune both Logistic Regression and XGBoost, and the winning model is selected automatically by F1 score. This prevents algorithm bias and produces a model that is provably the best option explored.
 
-All transformers (scaler, encoder, kmeans) were **fitted only on training data** and saved as `.pkl` artifacts. During inference, the application loads these pre-fitted transformers to apply the exact same scaling that was used during training, preventing inference drift.
+### 6.2 Class Imbalance (SMOTE)
 
-### 6.2 Class Imbalance Handling (SMOTE)
+SMOTE is applied **only to the training set** to prevent information leakage into the test evaluation. The test set is evaluated on its original, real-world distribution.
 
-**Synthetic Minority Over-sampling Technique (SMOTE)** was applied exclusively to the training split (not the test set) to avoid information leakage:
+### 6.3 Leakage-Free Preprocessing
 
-1. The 80% training split is passed through SMOTE
-2. Synthetic minority-class samples are generated by interpolating between real minority neighbors
-3. The model trains on the balanced synthetic set
-4. Evaluation is done on the original, untouched 20% test set
+The scaler, KMeans model, and all artifacts are **fitted on training data only** and saved as `.pkl` files. Inference loads these pre-fitted objects and applies them to new inputs — ensuring the exact same transformation is used at prediction time as during training.
 
-This ensures the evaluation reflects real-world distribution while training benefits from a balanced class signal.
+### 6.4 ChromaDB Absolute Path
 
-### 6.3 Stratified Train/Test Split
+The ChromaDB vector store is persisted at an **absolute path** (`BASE_DIR/chroma_db/`) resolved from `src/config.py`. This prevents the `./chroma_db` relative-path issue where the persist directory would change depending on the working directory or deployment environment.
 
-`train_test_split(..., stratify=y_pass)` ensures that the proportion of pass/fail labels is preserved identically in both training and test sets, preventing skewed evaluation.
+### 6.5 Auto-Training on First Deploy
 
-### 6.4 Model Serialization
+`app.py` checks for the existence of all required `.pkl` files at startup. If any are missing (e.g. on a fresh Streamlit Cloud deploy), the full training pipeline runs automatically before the UI loads — making the app self-contained without requiring a manual training step.
 
-All model artifacts are saved to the `models/` directory using `joblib`:
+### 6.6 Per-User Session Isolation
 
-| Artifact              | Purpose                                |
-| :-------------------- | :------------------------------------- |
-| `pass_model.pkl`    | Binary pass/fail classifier            |
-| `grade_model.pkl`   | Grade letter predictor (A–F)          |
-| `grade_encoder.pkl` | LabelEncoder for grade decoding        |
-| `scaler.pkl`        | MinMaxScaler for feature normalization |
-| `kmeans.pkl`        | K-Means behavioral cluster model       |
-
-### 6.5 Dashboard Consistency
-
-A key optimization was ensuring **mathematical consistency** between training and deployment: the pass/fail rules displayed on the dashboard (≥10 study hours, ≥75% attendance, ≥5 participation) are identical to the labeling rules used during training. This means the model's learned decision boundaries exactly align with user expectations on the interface.
+`SessionMemory` is stored inside `st.session_state` (not as a module-level singleton), ensuring each Streamlit user session has its own isolated conversation history. Resetting a prediction clears the memory via `st.session_state.pop("session_memory")`.
 
 ---
 
 ## 7. Team Contribution
 
-The project was executed through collaborative teamwork with clearly defined individual responsibilities.
-
 ### Divyanshu Raj – Data Engineering & Preprocessing Lead
 
-* Led data acquisition, loading, and initial exploration of the 1M-record student dataset.
-* Designed and implemented the IQR-based outlier removal pipeline across all numerical features.
-* Engineered the behavioral pass/fail target variable based on multi-condition thresholds.
-* Implemented and fitted the MinMaxScaler; ensured leakage-free preprocessing with stratified splitting.
-* Applied median-based null imputation and validated dataset integrity.
+* Led data acquisition, loading, and initial exploration of the ~1M-record student dataset.
+* Designed and implemented the full `DataProcessor` class: IQR outlier removal, median null imputation, percentile clipping, MinMaxScaling, stratified train/test split, and SMOTE oversampling.
+* Ensured all transformers were fitted only on training data and saved correctly for leakage-free inference.
 
-### Yash Agarwal – ML Modeling & Algorithm Tuning Lead
+### Yash Agarwal – ML Modelling & Algorithm Tuning Lead
 
-* Led the design and training of the `XGBClassifier` for both pass/fail and grade prediction.
-* Integrated SMOTE oversampling into the training pipeline using `imbalanced-learn`.
-* Managed model hyperparameter settings and `random_state` reproducibility.
-* Evaluated model performance using accuracy and precision metrics on the held-out test set.
-* Oversaw export of all trained model artifacts using `joblib`.
+* Designed and implemented the `ModelTrainer` class with GridSearchCV over Logistic Regression and XGBoost.
+* Configured the 3-fold StratifiedKFold evaluation strategy and weighted F1 scoring.
+* Implemented KMeans clustering (k=3) for student behavioural segmentation.
+* Evaluated model performance on the held-out test set and managed artifact serialisation.
 
-### Abhijeet – Application Development & Deployment Lead
+### Abhijeet Kumar – Application Development & Deployment Lead
 
-* Designed and built the complete Streamlit dashboard (`app.py`), including both Individual and Batch Prediction pages.
-* Implemented the real-time prediction function integrating all five model artifacts.
-* Built the improvement suggestions logic (area-of-improvement tips for failing students).
-* Implemented the batch upload workflow with CSV parsing, prediction columns, download functionality, and chart visualizations (grade distribution, pass/fail pie chart, cluster bar chart).
-* Managed the student search feature and deployment configuration.
+* Built the complete two-page Streamlit application (`app.py`, `pages/dashboard.py`, `pages/chat_interface.py`).
+* Implemented `StudentPredictor` inference class and all prediction + recommendation logic.
+* Created the `UIBuilder` class with the full dark glassmorphism CSS design system, prediction cards, score bars, stat chips, and tip cards.
+* Managed auto-training on first deploy and Streamlit Cloud secret key integration.
 
-### Ranajeet Roy – Clustering Architecture & Documentation Lead
+### Ranajeet Roy – AI Agent Architecture & Documentation Lead
 
-* Designed and integrated the K-Means clustering pipeline (`n_clusters=3`) to segment students into behavioral cohorts.
-* Managed the LabelEncoder for grade encoding/decoding and its serialized export.
-* Authored the complete technical project report, including data flow diagrams and methodology documentation.
-* Coordinated cross-functional documentation and ensured technical consistency across all sections.
+* Designed and implemented the complete LangGraph `StudyCoachAgent` with 6 nodes (Router, Diagnosis, Planner, ResourceRetriever, ResponseGenerator, Memory).
+* Built `RAGTool` (ChromaDB + HuggingFace embeddings, 25 curated study tips) and `WebSearchTool` (Tavily live search).
+* Implemented `SessionMemory` class and wired it as the per-user backing store for conversation history.
+* Authored all technical documentation including `ARCHITECTURE_PIPELINE.md` and `FINAL_PROJECT_REPORT.md`.
 
 ### Contribution Summary
 
-| Task Area                     | Primary Contributor |
-| :---------------------------- | :------------------ |
-| Data Cleaning & Preprocessing | Divyanshu Raj       |
-| ML Modeling & Training        | Yash Agarwal        |
-| Frontend UI & Dashboard       | Abhijeet Kumar      |
-| Clustering & Documentation    | Ranajeet Roy        |
+| Task Area | Primary Contributor |
+| :---------------------------------- | :-------------------- |
+| Data Cleaning & Preprocessing | Divyanshu Raj |
+| ML Modelling & GridSearchCV | Yash Agarwal |
+| Streamlit UI & Inference Engine | Abhijeet Kumar |
+| LangGraph Agent & AI Tools | Ranajeet Roy |
 
 ---
 
-*This project demonstrates how behavioral analytics — without access to academic grades — can reliably power proactive student intervention systems at scale.*
+*This project demonstrates how a combination of classical machine learning and modern generative AI can transform a raw pass/fail prediction into a fully personalised, conversational academic coaching experience — available to any student, at any time, at zero marginal cost.*
