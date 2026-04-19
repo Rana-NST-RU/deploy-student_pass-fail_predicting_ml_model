@@ -1,6 +1,9 @@
 import streamlit as st
 from agents.study_coach_agent import StudyCoachAgent
+from memory.session_memory import SessionMemory
 from src.ui_components import UIBuilder
+
+_SESSION_KEY = "active"
 
 
 @st.cache_resource
@@ -34,6 +37,12 @@ prediction = student_data.get("prediction", "Unknown")
 prob = student_data.get("probability", 0.0)
 cluster = student_data.get("cluster", 0)
 
+# ── SessionMemory — single source of truth for conversation history ──
+if "session_memory" not in st.session_state:
+    st.session_state.session_memory = SessionMemory()
+
+session_mem: SessionMemory = st.session_state.session_memory
+
 # ── Header ──
 ui.render_chat_profile(prediction, prob, cluster)
 
@@ -52,13 +61,10 @@ st.markdown("""
 
 st.markdown("---")
 
-# ── Session init ──
+# ── Chat history display (backed by SessionMemory) ──
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "session_history" not in st.session_state:
-    st.session_state.session_history = []
 
-# ── Chat history display ──
 for msg in st.session_state.chat_history:
     role = msg["role"]
     content = msg["content"]
@@ -80,12 +86,13 @@ if prompt := st.chat_input("Ask your study coach anything about your studies..."
             reply, updated_history = agent.chat(
                 user_message=prompt,
                 student_data=student_data,
-                session_history=st.session_state.session_history,
+                session_history=session_mem.get_history(_SESSION_KEY),
             )
         st.markdown(reply)
 
     st.session_state.chat_history.append({"role": "assistant", "content": reply})
-    st.session_state.session_history = updated_history
+    # Sync the agent's updated history back into SessionMemory
+    session_mem.set_history(_SESSION_KEY, updated_history)
 
 # ── Clear chat ──
 if st.session_state.chat_history:
@@ -94,5 +101,5 @@ if st.session_state.chat_history:
     with btn_col:
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.chat_history = []
-            st.session_state.session_history = []
+            session_mem.clear(_SESSION_KEY)
             st.rerun()

@@ -15,7 +15,7 @@
 * **Batch:** 2024
 * **Date:** March 2026
 * **GitHub Repository:** https://github.com/divyanshu-114/student_pass-fail_predicting_ml_model
-* **Hosted Application:** https://student-pass-fail-predicting-ml-model.onrender.com/#student-individual-prediction
+* **Hosted Application:** https://student-pass-fail-predicting-ml-model.streamlit.app/
 
 ---
 

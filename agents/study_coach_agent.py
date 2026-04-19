@@ -60,7 +60,6 @@ class StudyCoachAgent:
             retrieved_resources=[],
             web_links=[],
             session_history=session_history,
-            current_goal=None,
             is_study_query=False,
         )
         result = self.run(state)
