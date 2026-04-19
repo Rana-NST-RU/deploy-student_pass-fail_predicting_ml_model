@@ -188,6 +188,213 @@
 
 ---
 
+## 🤖 AI Study Coach Pipeline
+### `pages/chat_interface.py` — LangGraph Agent Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              👤 USER INPUT (chat_interface.py)              │
+│                                                             │
+│  Prerequisites (enforced by guard clause):                  │
+│    • student_data must exist in st.session_state            │
+│    • prediction_done flag must be True                      │
+│    → If missing: redirect to Dashboard page                 │
+│                                                             │
+│  Inputs passed to agent.chat():                             │
+│    • user_message     — current chat prompt                 │
+│    • student_data     — 9 features + prediction + cluster   │
+│    • session_history  — loaded from SessionMemory           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│            🧠 LANGGRAPH STATE INITIALISATION                │
+│             StudyCoachAgent.chat()  →  AgentState           │
+│                                                             │
+│  AgentState fields:                                         │
+│  ┌────────────────────────┬──────────────────────────────┐  │
+│  │ Field                  │ Initial value                │  │
+│  ├────────────────────────┼──────────────────────────────┤  │
+│  │ messages               │ [HumanMessage(user_message)] │  │
+│  │ student_data           │ dict from st.session_state   │  │
+│  │ learning_gaps          │ []                           │  │
+│  │ study_plan             │ None                         │  │
+│  │ retrieved_resources    │ []                           │  │
+│  │ web_links              │ []                           │  │
+│  │ session_history        │ SessionMemory.get_history()  │  │
+│  │ is_study_query         │ False  (set by RouterNode)   │  │
+│  └────────────────────────┴──────────────────────────────┘  │
+│                                                             │
+│  messages uses operator.add reducer → auto-appended         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   🔀 NODE 1: RouterNode                     │
+│                    agents/nodes.py                          │
+│                                                             │
+│  Calls Groq LLM (llama-3.1-8b-instant):                    │
+│    System: "Classify query — STUDY or GENERAL"              │
+│    Input:  last user message                                │
+│                                                             │
+│  → STUDY  : academic topics (scores, plans, study tips)     │
+│  → GENERAL: greetings, off-topic, casual chat              │
+│                                                             │
+│  Sets state["is_study_query"] = True | False                │
+│  Fallback on LLM error → defaults to True (STUDY path)     │
+└────────────┬────────────────────────────────────┬───────────┘
+             │ is_study_query == True              │ is_study_query == False
+             ▼                                    ▼
+┌────────────────────────┐          ┌─────────────────────────┐
+│  🔬 NODE 2:            │          │  ⚡ SHORT PATH           │
+│  DiagnosisNode         │          │  Skip directly to        │
+│                        │          │  ResponseGeneratorNode   │
+│  Rule-based thresholds │          │  (no plan, no RAG)       │
+│  on student_data:      │          └────────────┬────────────┘
+│                        │                       │
+│  math_score    < 50 →  │                       │
+│  reading_score < 50 →  │                       │
+│  writing_score < 50 →  │                       │
+│  attendance    < 0.75→ │                       │
+│  study_hours   < 2h  → │                       │
+│  stress_level  > 7   → │                       │
+│  sleep_hours   < 6h  → │                       │
+│  motivation    < 30  → │                       │
+│                        │                       │
+│  → learning_gaps list  │                       │
+│  → ["no major gaps"]   │                       │
+│    if all pass         │                       │
+└────────────┬───────────┘                       │
+             │                                   │
+             ▼                                   │
+┌─────────────────────────────────────────────────────────────┐
+│                   📅 NODE 3: PlannerNode                    │
+│                    agents/nodes.py                          │
+│                                                             │
+│  Builds a structured prompt with:                           │
+│    • Predicted outcome (Pass / Fail)                        │
+│    • learning_gaps from DiagnosisNode                       │
+│    • Full student profile (all 9 metrics)                   │
+│                                                             │
+│  Calls Groq LLM → generates a 7-day study plan             │
+│    Day 1 through Day 7, task-specific per weak area         │
+│                                                             │
+│  → state["study_plan"] = plan text                          │
+│  Fallback on error → placeholder message                    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│              📚 NODE 4: ResourceRetrieverNode               │
+│                    agents/nodes.py                          │
+│                                                             │
+│  Query = "study tips for {top 2 learning gaps}"             │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  RAGTool  (tools/rag_tool.py)                        │   │
+│  │    • ChromaDB vector store  (BASE_DIR/chroma_db/)    │   │
+│  │    • Embeddings: all-MiniLM-L6-v2 (HuggingFace)     │   │
+│  │    • 25 curated study-tip documents (auto-seeded)    │   │
+│  │    • similarity_search(query, k=3)                   │   │
+│  │    → retrieved_resources: List[str]  (3 tips)        │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  WebSearchTool  (tools/web_search_tool.py)           │   │
+│  │    • TavilyClient (TAVILY_API_KEY)                   │   │
+│  │    • Live web search — returns top 2 results         │   │
+│  │    → web_links: List[str]  ("Title — URL" format)   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  Both results stored in AgentState                          │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼ (joins GENERAL path here)
+┌─────────────────────────────────────────────────────────────┐
+│             💬 NODE 5: ResponseGeneratorNode                │
+│                    agents/nodes.py                          │
+│                                                             │
+│  ── STUDY path system prompt contains: ─────────────────── │
+│    • Predicted outcome + full student profile               │
+│    • Identified weak areas (learning_gaps)                  │
+│    • RAG study tips (retrieved_resources)                   │
+│    • Web resource links with full URLs                      │
+│    • Generated 7-day study plan                             │
+│    • Last 6 turns of conversation history                   │
+│    • Instructions to be encouraging + reference scores      │
+│                                                             │
+│  ── GENERAL path system prompt: ──────────────────────────  │
+│    • Instructs agent to decline off-topic questions         │
+│    • Redirects to academic topics only                      │
+│    • Includes last 6 turns of conversation history          │
+│                                                             │
+│  Calls Groq LLM → final AI reply                           │
+│  state["messages"] = [AIMessage(content=reply)]             │
+│  Fallback on error → connection error message               │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  🗂️  NODE 6: MemoryNode                     │
+│                    agents/nodes.py                          │
+│                                                             │
+│  Extracts last HumanMessage + last AIMessage from state     │
+│  Appends both as turns to session_history:                  │
+│    {"role": "user",      "content": "..."}                  │
+│    {"role": "assistant", "content": "..."}                  │
+│                                                             │
+│  state["session_history"] = updated list                    │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         END                                 │
+│            StateGraph compilation terminates                │
+│                                                             │
+│  agent.chat() extracts from final state:                    │
+│    ai_reply        = result["messages"][-1].content         │
+│    updated_history = result["session_history"]              │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│           💾 SESSION MEMORY SYNC  (chat_interface.py)       │
+│                                                             │
+│  session_mem.set_history("active", updated_history)         │
+│  → SessionMemory stores history in st.session_state         │
+│  → Persists across Streamlit reruns for this user           │
+│  → Loaded back via session_mem.get_history("active")        │
+│    on the next message                                       │
+│                                                             │
+│  On new prediction (dashboard.py):                          │
+│    st.session_state.pop("session_memory")                   │
+│    → Full reset — fresh coaching session begins             │
+│                                                             │
+│  On "Clear Chat" button:                                    │
+│    session_mem.clear("active")                              │
+│    → History wiped, chat_history reset, page reruns         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 📤 STUDY COACH FINAL OUTPUT                 │
+│                                                             │
+│  Conversational AI reply rendered via st.chat_message()     │
+│                                                             │
+│  STUDY query reply includes:                                │
+│    ✅ Personalised 7-day study plan (Day 1–7)               │
+│    ✅ Up to 3 RAG-retrieved study tips                      │
+│    ✅ Up to 2 live web resource links (clickable URLs)      │
+│    ✅ References to specific student scores & weak areas    │
+│    ✅ Encouraging tone (especially for Fail predictions)    │
+│                                                             │
+│  GENERAL query reply:                                       │
+│    ℹ️  Polite decline + redirect to academic topics         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 **⚠️ Note on model metrics:** All evaluation metrics (accuracy, precision, recall, F1) reach
 1.00 on this dataset because the `pass_fail` label in the synthetic CSV is a deterministic
 function of the input feature scores (specifically the average of `math_score`,
